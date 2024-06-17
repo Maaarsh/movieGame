@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Movie Information</title>
+  <!-- <link rel="stylesheet" type="text/css" href="movieSearch.css"/> -->
+  <style>
+    body {
+      background-color: black;
+      color: white;
+    }
+
+    .lightMode {
+      background-color: white;
+      color: black;
+    }
+  </style>
+</head>
+<body onload="getRandomMovie()">
+  <img src="MovieGameLogo.png" alt="Marshall's Movie Game" height="100"/>
+  <input type="text" id="movieTitle" placeholder="Enter movie title" onkeydown="handleKeyDown(event)">
+  <button onclick="getMovieInfo()">Submit</button>
+  <!-- <button onclick="getRandomMovie()">Get Random Movie</button> -->
+  <!-- <button onclick="toggleLight()" value = "Light Mode" id = "lightButt"></button> -->
+  <input onclick="toggleLight()" type="button" value="Light Mode" id="lightButt">
+  <h1>I'm thinking of a movie, can you guess it?</h1>
+  <img src="thinking.png" alt="Emoji of person thinking" width="100"/>
+  <p><span id="guessesR">Guesses Remaining: 5</span></p>
+  <div id="movieInfo"></div>
+
+  <script>
+    let randomMovie = null;
+
+    let guesses = 5;
+
+    let stop = false;
+
+    //are var and let necessary? what is the difference? when to use or not to use? when to use one or the other?
+
+    function handleKeyDown(event) {
+      if (event.key === 'Enter') {
+        getMovieInfo();
+      }
+    }
+
+    function getMovieInfo() {
+      const movieTitle = document.getElementById('movieTitle').value;
+      const apiUrl = `http://127.0.0.1:4908/get_user_movie?userMovie=${encodeURIComponent(movieTitle)}`;
+
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          if (randomMovie && data.Series_Title === randomMovie.Series_Title) {
+            stop = true;
+            displaySuccess('Correct! You win! :)');
+          } else if (!stop) {
+            guesses -= 1;
+            guessesRemainingMessage = 'Guesses Remaining: ' + guesses;
+            document.getElementById('guessesR').innerText = guessesRemainingMessage;
+            displayMovieDifferences(data);
+          }
+          if (guesses == 0) {
+            stop = true;
+            // displayFail('Out of guesses! You lose! :(');
+            displayMovieInfo(randomMovie);
+            document.getElementById('guessesR').innerText = 'Out of guesses! You lose! :(';
+            document.getElementById('guessesR').style.color = 'red';
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          displayError('An error occurred while fetching movie information.');
+        });
+    }
+
+    function getRandomMovie() {
+      const apiUrl = 'http://127.0.0.1:4908/get_random_movie';
+      fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        randomMovie = data;
+        console.log(randomMovie);
+        // displayMessage('Guess the movie');
+      })
+      .catch(error => {
+          console.error('Error:', error);
+          displayError('An error occurred while fetching a random movie.');
+        });
+    }
+
+    function displayMovieDifferences(movieInfo) {
+      if (stop) {
+        return;
+      }
+      const yourMovie = movieInfo.Series_Title;
+      const directorMessage = getDirectorMessage(movieInfo.Director, randomMovie.Director);
+      const yearMessage = getYearMessage(movieInfo.Released_Year, randomMovie.Released_Year, yourMovie);
+      const genreMessage = getGenreMessage(movieInfo.Genre, randomMovie.Genre);
+      const ratingMessage = getRatingMessage(movieInfo.IMDB_Rating, randomMovie.IMDB_Rating, yourMovie);
+      const starsMessage = getStarsMessage(movieInfo, randomMovie);
+      const grossMessage = getGrossMessage(movieInfo.Gross, randomMovie.Gross, yourMovie);
+
+      const comparisonHtml = `
+        <div class="movie-comparison">
+          <h2>${movieInfo.Series_Title}</h2>
+          <p>Year: ${yearMessage}</p>
+          <p>Genres: ${genreMessage}</p>
+          <p>IMDB Rating: ${ratingMessage}</p>
+          <p>Director: ${directorMessage}</p>
+          <p>Stars: ${starsMessage}</p>
+          <p>Gross: ${grossMessage}</p>
+        </div>
+      `;
+
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.insertAdjacentHTML('afterbegin', comparisonHtml);
+    }
+
+    function getDirectorMessage(userDirector, randomDirector) {
+      if (userDirector === randomDirector) {
+        return 'Same Director';
+      } else {
+        return 'Different Director';
+      }
+    }
+
+    function getYearMessage(userYear, randomYear, yourMovie) {
+      if (userYear === randomYear) {
+        return 'Same Year';
+      } else if (userYear > randomYear) {
+        return yourMovie + ' came out after the random movie';
+      } else {
+        return yourMovie + ' came out before the random movie';
+      }
+    }
+
+    function getGenreMessage(userGenres, randomGenres) {
+      userGenres = userGenres.split(', ');
+      randomGenres = randomGenres.split(', ');
+      const commonGenres = userGenres.filter(value => randomGenres.includes(value));
+      if (commonGenres.length > 0) {
+        return 'Common Genres: ' + commonGenres.join(', ');
+      } else {
+        return 'No common genres';
+      }
+    }
+
+    function getRatingMessage(userRating, randomRating, yourMovie) {
+      if (userRating === randomRating) {
+        return 'Same Rating';
+      } else if (userRating > randomRating) {
+        return yourMovie + ' has a higher rating';
+      } else {
+        return yourMovie + ' has a lower rating';
+      }
+    }
+
+    function getStarsMessage(movieInfo, randomMovie) {
+      const userStars = [movieInfo.Star1, movieInfo.Star2, movieInfo.Star3, movieInfo.Star4];
+      const randomStars = [randomMovie.Star1, randomMovie.Star2, randomMovie.Star3, randomMovie.Star4];
+      const commonStars = userStars.filter(value => randomStars.includes(value));
+      if (commonStars.length > 0) {
+        return 'Common Stars: ' + commonStars.join(', ');
+      } else {
+        return 'No common stars';
+      }
+    }
+
+    function getGrossMessage(userGross, randomGross, yourMovie) {
+      if (userGross === randomGross) {
+        return 'Same Gross';
+      } else if (userGross > randomGross) {
+        return yourMovie + ' made more money';
+      } else {
+        return yourMovie + ' made less money';
+      }
+    }
+
+    function displayError(errorMessage) {
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.innerHTML = `<p>${errorMessage}</p>`;
+    }
+
+    function displayMessage(message) {
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.innerHTML = `<p>${message}</p>`;
+    }
+
+    function displaySuccess(message) {
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.innerHTML = `<p style="color: green;">${message}</p>`;
+    }
+
+    function displayFail(message) {
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.innerHTML = `<p style="color: red;">${message}</p>`;
+    }
+
+    function toggleLight() {
+      var element = document.body;
+      element.classList.toggle('lightMode');
+      var elem = document.getElementById("lightButt");
+      if (elem.value == "Light Mode") elem.value = "Dark Mode";
+      else elem.value = "Light Mode"
+    }
+
+    function displayMovieInfo(movieInfo) {
+      const movieInfoDiv = document.getElementById('movieInfo');
+      movieInfoDiv.innerHTML = `
+        <h2>${movieInfo.Series_Title}</h2>
+        <p>Year: ${movieInfo.Released_Year}</p>
+        <p>Genre: ${movieInfo.Genre}</p>
+        <p>IMDB Rating: ${movieInfo.IMDB_Rating}</p>
+        <p>Director: ${movieInfo.Director}</p>
+        <p>Star 1: ${movieInfo.Star1}</p>
+        <p>Star 2: ${movieInfo.Star2}</p>
+        <p>Star 3: ${movieInfo.Star3}</p>
+        <p>Star 4: ${movieInfo.Star4}</p>
+        <p>Gross: $${movieInfo.Gross}</p>
+      `;
+    }
+
+  </script>
+</body>
+</html>
